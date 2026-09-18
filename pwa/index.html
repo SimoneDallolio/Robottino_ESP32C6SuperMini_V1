@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10151f">
+  <meta name="description" content="Configurazione BLE del Robottino">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+  <title>Robottino BLE</title>
+</head>
+<body>
+  <main class="shell">
+    <section class="welcome" id="welcomeScreen">
+      <h1>Benvenuto in<br>Robottino App</h1>
+      <button class="button primary" id="connectButton">Seleziona Robottino</button>
+      <p class="feedback" id="welcomeFeedback" role="status"></p>
+    </section>
+    <header class="hero" id="appHeader" hidden>
+      <div>
+        <span class="eyebrow">CONFIGURAZIONE BLE</span>
+      </div>
+    </header>
+
+    <section class="panel access-panel" id="accessPanel">
+      <div class="panel-heading"><span>01</span><h2>Accesso</h2></div>
+      <label for="pin">PIN del robottino</label>
+      <input id="pin" type="password" inputmode="numeric" maxlength="4" placeholder="0000" autocomplete="off">
+      <p class="hint">Il PIN viene verificato direttamente dall'ESP32.</p>
+      <div class="first-boot" id="firstBootPanel" hidden>
+        <strong>Primo avvio rilevato</strong>
+        <p>Per proteggere il Robottino devi sostituire il PIN iniziale `0000`.</p>
+        <label for="newPin">Nuovo PIN a 4 cifre</label>
+        <input id="newPin" type="password" inputmode="numeric" maxlength="4" placeholder="Nuovo PIN" autocomplete="new-password">
+        <p class="hint">Il nuovo PIN sarà richiesto ai prossimi accessi.</p>
+      </div>
+      <button class="button primary" id="unlockButton">Continua</button>
+      <p class="feedback" id="accessFeedback" role="status"></p>
+    </section>
+
+    <section class="setup-content" id="setupContent" hidden>
+    <section class="panel">
+      <div class="panel-heading"><span>02</span><h2>Rete Wi-Fi</h2></div>
+      <p class="hint">Cerca le reti vicine dal Robottino e selezionane una.</p>
+      <button class="button secondary" id="scanWifiButton">Cerca reti Wi-Fi vicine</button>
+      <div id="nearbyNetworks" class="network-list" aria-live="polite"></div>
+      <label for="ssid">Rete selezionata</label>
+      <input id="ssid" placeholder="Scegli una rete dall'elenco o inseriscila manualmente">
+      <label for="wifiPassword">Password Wi-Fi</label>
+      <input id="wifiPassword" type="password" placeholder="Password della rete">
+      <div class="saved-section">
+        <strong>Reti salvate nel Robottino</strong>
+        <div id="savedNetworks" class="network-list"></div>
+      </div>
+      <button class="button secondary" id="retryWifiButton">Riprova la connessione alle reti salvate</button>
+    </section>
+
+    <section class="panel split">
+      <div>
+        <div class="panel-heading"><span>03</span><h2>Posizione</h2></div>
+        <p id="locationText" class="value">Non rilevata</p>
+        <button class="button secondary" id="locationButton">Rileva posizione GPS</button>
+      </div>
+      <div>
+        <div class="panel-heading"><span>04</span><h2>Ora</h2></div>
+        <p class="value" id="timeText">Non sincronizzata</p>
+        <button class="button secondary" id="timeButton">Sincronizza ora locale</button>
+      </div>
+    </section>
+
+    <div class="wifi-actions">
+      <button class="button primary" id="sendButton">Salva rete Wi-Fi sull'ESP</button>
+      <button class="button secondary" id="stopBleButton">Ho finito: disattiva BLE</button>
+    </div>
+
+    <section class="panel">
+      <div class="panel-heading"><span>05</span><h2>Registro diagnostico <small id="logCount"></small></h2></div>
+      <p class="hint">Gli ultimi 20 eventi sono conservati nella memoria del Robottino e aggiornati automaticamente ogni 5 secondi via Bluetooth.</p>
+      <button class="button secondary" id="refreshLogsButton">Aggiorna messaggi</button>
+      <pre id="logBuffer" class="serial-log">Nessun messaggio ricevuto.</pre>
+    </section>
+    </section>
+    <p class="footer" id="appFooter" hidden>Servizio BLE: <code>7f7b0001-8b3a-4f65-9d39-2c8c5a7e1001</code></p>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

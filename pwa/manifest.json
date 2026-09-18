@@ -1,0 +1,11 @@
+{
+  "name": "Robottino BLE",
+  "short_name": "Robottino",
+  "description": "Configurazione BLE del Robottino",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0f141c",
+  "theme_color": "#10151f",
+  "lang": "it",
+  "icons": []
+}
