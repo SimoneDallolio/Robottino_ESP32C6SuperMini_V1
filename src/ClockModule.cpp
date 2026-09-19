@@ -6,6 +6,7 @@
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include "time.h"
+#include "soc/usb_serial_jtag_struct.h"
 
 // Server e regola del fuso orario usati dalla sincronizzazione NTP.
 const char* ntpServer = "pool.ntp.org";
@@ -129,30 +130,7 @@ void renderClockScreen(Adafruit_SSD1306& display) {
   bool hasTime = getLocalTime(&timeinfo);
 
   if (hasTime) {
-    // Data abbreviata nell'angolo in alto a sinistra.
-    char dateText[8];
-    snprintf(dateText, sizeof(dateText), "%s %02d", months[timeinfo.tm_mon], timeinfo.tm_mday);
-    display.setTextSize(1);
-    display.setCursor(2, 2);
-    display.print(dateText);
-
-    // L'orario resta centrato nel display.
-    char timeText[6];
-    snprintf(timeText, sizeof(timeText), "%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min);
-    display.setTextSize(3);
-    int16_t textX;
-    int16_t textY;
-    uint16_t textWidth;
-    uint16_t textHeight;
-    display.getTextBounds(timeText, 0, 0, &textX, &textY, &textWidth, &textHeight);
-    // Compensa l'origine interna del font per centrare il rettangolo reale
-    // del testo, non soltanto il punto di inserimento del cursore.
-    display.setCursor((SCREEN_WIDTH - textWidth) / 2 - textX,
-              (SCREEN_HEIGHT - textHeight) / 2 - textY);
-    display.print(timeText);
-
-    // Mini termometro in basso a destra. La temperatura viene ottenuta da
-    // Open-Meteo usando le coordinate salvate in NVS.
+    // 1. Temperatura in alto a sinistra.
     display.setTextSize(1);
     char temperatureValue[8];
     if (!isnan(currentTemperature)) {
@@ -160,17 +138,105 @@ void renderClockScreen(Adafruit_SSD1306& display) {
     } else {
       snprintf(temperatureValue, sizeof(temperatureValue), "--");
     }
-    display.getTextBounds(temperatureValue, 0, 0, &textX, &textY, &textWidth, &textHeight);
-
-    // Il font standard del display non contiene sempre il carattere "°".
-    // Lo disegniamo quindi come un piccolo cerchio tra il valore e la C.
-    int temperatureY = SCREEN_HEIGHT - textHeight - 1;
-    int temperatureX = SCREEN_WIDTH - textWidth - 12;
-    display.setCursor(temperatureX, temperatureY);
+    
+    int16_t tempX, tempY;
+    uint16_t tempWidth, tempHeight;
+    display.getTextBounds(temperatureValue, 0, 0, &tempX, &tempY, &tempWidth, &tempHeight);
+    
+    display.setCursor(2, 2);
     display.print(temperatureValue);
-    display.drawCircle(temperatureX + textWidth + 3, temperatureY + 2, 1, SSD1306_WHITE);
-    display.setCursor(temperatureX + textWidth + 6, temperatureY);
+    display.drawCircle(2 + tempWidth + 3, 4, 1, SSD1306_WHITE);
+    display.setCursor(2 + tempWidth + 6, 2);
     display.print("C");
+
+    // 2. Indicatore Batteria in alto a destra
+    // La percentuale viene aggiornata ogni 30 secondi con la media di 16 campioni
+    // per eliminare il rumore dell'ADC ed evitare il flickering tra due valori.
+    static int batteryPercentage = 0;
+    static unsigned long lastBattUpdate = 0;
+    const unsigned long BATT_UPDATE_INTERVAL = 30000UL; // 30 secondi
+    if (millis() - lastBattUpdate >= BATT_UPDATE_INTERVAL || lastBattUpdate == 0) {
+      long adcSum = 0;
+      const int NUM_SAMPLES = 16;
+      for (int i = 0; i < NUM_SAMPLES; i++) {
+        adcSum += analogRead(BATTERY_ADC_PIN);
+        delay(2);
+      }
+      float vGpio = ((adcSum / (float)NUM_SAMPLES) / 4095.0f) * 3.3f;
+      float vBatt = vGpio * 2.0f;
+      batteryPercentage = (int)(((vBatt - 3.0f) / (4.2f - 3.0f)) * 100.0f);
+      if (batteryPercentage < 0)   batteryPercentage = 0;
+      if (batteryPercentage > 100) batteryPercentage = 100;
+      lastBattUpdate = millis();
+    }
+    char battText[8];
+    snprintf(battText, sizeof(battText), "%d%%", batteryPercentage);
+    int16_t battX, battY;
+    uint16_t battWidth, battHeight;
+    display.getTextBounds(battText, 0, 0, &battX, &battY, &battWidth, &battHeight);
+    
+    int iconWidth = 14; 
+    int totalBattWidth = battWidth + 2 + iconWidth;
+    int battCursorX = SCREEN_WIDTH - totalBattWidth - 2;
+    int battCursorY = 2;
+    
+    display.setCursor(battCursorX, battCursorY);
+    display.print(battText);
+    
+    int iconX = battCursorX + battWidth + 2;
+    int iconY = battCursorY + 1;
+
+    // Rileva USB-C leggendo il contatore SOF hardware del controller USB.
+    // Quando la USB è collegata, l'host invia un SOF packet ogni 1ms e il contatore cambia.
+    // Quando è scollegata, il contatore rimane fermo.
+    // Nessun pin aggiuntivo necessario: è tutto hardware interno all'ESP32-C6.
+    static uint16_t prevSofCount = 0;
+    static bool isCharging = false;
+    uint16_t currSofCount = (uint16_t)(USB_SERIAL_JTAG.fram_num.sof_frame_index);
+    isCharging = (currSofCount != prevSofCount);
+    prevSofCount = currSofCount;
+
+    if (isCharging) {
+      // Icona fulmine: indica la ricarica in corso
+      display.drawLine(iconX + 4, iconY,     iconX + 1, iconY + 3, SSD1306_WHITE); // diagonale alta
+      display.drawLine(iconX + 1, iconY + 3, iconX + 3, iconY + 3, SSD1306_WHITE); // segmento orizzontale
+      display.drawLine(iconX + 3, iconY + 3, iconX,     iconY + 6, SSD1306_WHITE); // diagonale bassa
+    } else {
+      // Icona della batteria
+      display.drawRect(iconX, iconY, 12, 6, SSD1306_WHITE);
+      display.fillRect(iconX + 12, iconY + 2, 2, 2, SSD1306_WHITE);      // Polo positivo
+      int fillWidth = (batteryPercentage * 10) / 100;
+      if (fillWidth > 0) {
+        display.fillRect(iconX + 1, iconY + 1, fillWidth, 4, SSD1306_WHITE); // Livello interno
+      }
+    }
+
+    // 3. L'orario perfettamente centrato nello schermo.
+    char timeText[6];
+    snprintf(timeText, sizeof(timeText), "%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min);
+    display.setTextSize(3);
+    int16_t timeX, timeY;
+    uint16_t timeWidth, timeHeight;
+    display.getTextBounds(timeText, 0, 0, &timeX, &timeY, &timeWidth, &timeHeight);
+    
+    int timeCursorX = (SCREEN_WIDTH - timeWidth) / 2 - timeX;
+    int timeCursorY = (SCREEN_HEIGHT - timeHeight) / 2 - timeY; 
+    display.setCursor(timeCursorX, timeCursorY);
+    display.print(timeText);
+
+    // 4. Data spostata in basso al centro (stessa distanza dal bordo usata in alto).
+    char dateText[8];
+    snprintf(dateText, sizeof(dateText), "%s %02d", months[timeinfo.tm_mon], timeinfo.tm_mday);
+    display.setTextSize(1);
+    int16_t dateX, dateY;
+    uint16_t dateWidth, dateHeight;
+    display.getTextBounds(dateText, 0, 0, &dateX, &dateY, &dateWidth, &dateHeight);
+    
+    int dateCursorX = (SCREEN_WIDTH - dateWidth) / 2 - dateX;
+    int dateCursorY = SCREEN_HEIGHT - dateHeight - 2; // 2 pixel di margine dal basso
+    display.setCursor(dateCursorX, dateCursorY);
+    display.print(dateText);
+
   } else {
     display.setTextSize(1);
     display.setCursor(29, 28);

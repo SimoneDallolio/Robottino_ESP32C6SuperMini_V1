@@ -17,6 +17,7 @@
 #define ACCELEROMETER_SCL_PIN 7
 
 #define BUTTON_PIN 2 // Pulsante collegato tra GPIO 2 e GND.
+#define BATTERY_ADC_PIN 3 // Partitore di tensione 100k/100k tra B+ e B-, metà collegata a GPIO3.
 
 #define BLE_SERVICE_UUID "7f7b0001-8b3a-4f65-9d39-2c8c5a7e1001"
 #define BLE_CONFIG_CHARACTERISTIC_UUID "7f7b0002-8b3a-4f65-9d39-2c8c5a7e1001"
