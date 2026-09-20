@@ -197,7 +197,7 @@ async function deleteSavedNetwork(ssid) {
 async function scanWifi() {
   try {
     $('nearbyNetworks').textContent = 'Scansione in corso... attendere (potrebbe richiedere qualche secondo).';
-    const result = await requestRobot('scanWifi');
+    const result = await requestRobot('scanWifi', {}, 12000);
     renderNetworks('nearbyNetworks', result.networks || [], true);
   } catch (error) { 
     $('nearbyNetworks').textContent = error.message; 
@@ -208,10 +208,9 @@ async function retryWifi() {
   try {
     // Il firmware prova ogni rete fino a tre volte: questa operazione puo'
     // richiedere alcuni minuti senza che la connessione BLE sia guasta.
-    const result = await requestRobot('retryWifi', {}, 300000);
-    showFeedback('feedback', result.message || 'Connessione Wi-Fi riuscita.');
+    await requestRobot('retryWifi', {}, 300000);
     await loadLogs();
-  } catch (error) { showFeedback('feedback', error.message, true); await loadLogs(); }
+  } catch (error) { await loadLogs(); }
 }
 
 async function loadLogs() {
@@ -231,7 +230,7 @@ async function loadLogs() {
       if (!Number.isInteger(offset) || offset > 20) throw new Error('Risposta log non valida.');
       if (!done) await wait(80);
     }
-    $('logBuffer').textContent = allLogs.join('\n') || 'Nessun messaggio ricevuto.';
+    $('logBuffer').textContent = allLogs.reverse().join('\n') || 'Nessun messaggio ricevuto.';
     $('logCount').textContent = `(${total}/20)`;
   } catch (error) {
     $('logBuffer').textContent = `Impossibile leggere i messaggi: ${error.message}`;
