@@ -48,6 +48,7 @@ void bleConfigBegin(const String& deviceName) {
   if (active) return;
 
   NimBLEDevice::init(deviceName.c_str());
+  NimBLEDevice::setMTU(512);
   server = NimBLEDevice::createServer();
   // NimBLE 2 non riavvia automaticamente l'advertising dopo una disconnessione.
   server->advertiseOnDisconnect(true);

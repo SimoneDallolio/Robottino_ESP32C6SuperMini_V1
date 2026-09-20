@@ -196,11 +196,12 @@ async function deleteSavedNetwork(ssid) {
 
 async function scanWifi() {
   try {
-    showFeedback('feedback', 'Scansione Wi-Fi in corso...');
+    $('nearbyNetworks').textContent = 'Scansione in corso... attendere (potrebbe richiedere qualche secondo).';
     const result = await requestRobot('scanWifi');
     renderNetworks('nearbyNetworks', result.networks || [], true);
-    showFeedback('feedback', 'Seleziona una rete dall’elenco.');
-  } catch (error) { showFeedback('feedback', error.message, true); }
+  } catch (error) { 
+    $('nearbyNetworks').textContent = error.message; 
+  }
 }
 
 async function retryWifi() {

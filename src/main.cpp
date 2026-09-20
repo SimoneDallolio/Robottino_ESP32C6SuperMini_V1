@@ -186,15 +186,16 @@ void loop() {
   if (networkManagerTakeWifiRetryRequest()) networkManagerRetrySavedWifi();
   accelerometerLoop();
   if (accelerometerTakeShakeEvent()) {
-    shakeAnimationStart = millis();
-    currentScreen = MODE_FACE;
-    // Una scossa sveglia completamente il robot, anche dallo stato di sonno,
-    // e fa ripartire il conto alla rovescia prima dell'addormentamento.
-    faceState = FACE_AWAKE;
-    resetFaceAwakeAnimation();
-    lastActivityTime = shakeAnimationStart;
-    showStartupScreen = false;
-    networkManagerRecordLog("[ACC] Robot risvegliato dalla scossa");
+    if (!showStartupScreen) {
+      shakeAnimationStart = millis();
+      currentScreen = MODE_FACE;
+      // Una scossa sveglia completamente il robot, anche dallo stato di sonno,
+      // e fa ripartire il conto alla rovescia prima dell'addormentamento.
+      faceState = FACE_AWAKE;
+      resetFaceAwakeAnimation();
+      lastActivityTime = shakeAnimationStart;
+      networkManagerRecordLog("[ACC] Robot risvegliato dalla scossa");
+    }
   }
   if (isButtonHeldFor(3000)) {
     networkManagerStartBle();
