@@ -1,15 +1,18 @@
 #include "FaceModule.h"
 
 // Questo modulo contiene tutto il rendering del volto sul display OLED:
-// occhi, bocca e animazioni di addormentamento e sonno.
+// occhi e animazioni di addormentamento e sonno (senza bocca).
 
-// Dimensioni e coordinate degli occhi
-const int eyeWidth = 24;
-const int eyeHeight = 24;
-const int eyeRadius = 3;
-const int leftEyeX = 34;
-const int rightEyeX = 70;
-const int eyeY = 14;
+// Dimensioni e coordinate degli occhi — centrati verticalmente e orizzontalmente.
+// Display: 128x64. Due occhi da 34px, gap 8px, margine 26px per lato: (128-76)/2=26.
+// Centro verticale: eyeY = (64 - eyeHeight) / 2 = 17
+// Radius moderato per angoli smussati ma forma chiaramente rettangolare.
+const int eyeWidth = 34;
+const int eyeHeight = 30;
+const int eyeRadius = 7;
+const int leftEyeX = 26;           // (128 - 34 - 8 - 34) / 2 = 26
+const int rightEyeX = 68;          // 26 + 34 + 8
+const int eyeY = 17;               // (64 - 30) / 2
 
 enum AwakeGesture {
   AWAKE_RESTING,
@@ -37,24 +40,12 @@ static void chooseNextAwakeGesture() {
   // Sguardi e battiti sono scelti senza una sequenza fissa.
   if (random(100) < 55) {
     awakeGesture = AWAKE_LOOKING;
-    lookOffsetX = random(2) == 0 ? -8 : 8;
+    lookOffsetX = random(2) == 0 ? -6 : 6;
     gestureEndsAt = now + randomBetween(700, 1700);
   } else {
     awakeGesture = AWAKE_BLINKING;
     gestureEndsAt = now + randomBetween(120, 190);
   }
-}
-
-static void drawMouthAwake(Adafruit_SSD1306& display, int offsetX, int offsetY) {
-  // La bocca segue solo in parte il movimento degli occhi per rendere il volto
-  // piu naturale durante lo spostamento dello sguardo.
-  int mouthCenterX = 64 + (offsetX / 2);
-  int mouthBaseY = 48 + (offsetY / 2);
-
-  display.drawLine(mouthCenterX - 8, mouthBaseY, mouthCenterX + 1, mouthBaseY, SSD1306_WHITE);
-  display.drawLine(mouthCenterX + 1, mouthBaseY, mouthCenterX + 5, mouthBaseY - 1, SSD1306_WHITE);
-  display.drawLine(mouthCenterX + 5, mouthBaseY - 1, mouthCenterX + 8, mouthBaseY - 3, SSD1306_WHITE);
-  display.drawLine(mouthCenterX + 8, mouthBaseY - 3, mouthCenterX + 10, mouthBaseY - 6, SSD1306_WHITE);
 }
 
 void renderFaceAwake(Adafruit_SSD1306& display, int offsetX) {
@@ -86,7 +77,6 @@ void renderFaceAwake(Adafruit_SSD1306& display, int offsetX) {
 
   display.fillRoundRect(leftEyeX + eyeMoveX + offsetX, adjustedY, eyeWidth, currentEyeH, eyeRadius, SSD1306_WHITE);
   display.fillRoundRect(rightEyeX + eyeMoveX + offsetX, adjustedY, eyeWidth, currentEyeH, eyeRadius, SSD1306_WHITE);
-  drawMouthAwake(display, eyeMoveX + offsetX, 0);
 }
 
 void renderFaceFallingAsleep(Adafruit_SSD1306& display, unsigned long startTime, FaceState& currentState) {
@@ -102,42 +92,37 @@ void renderFaceFallingAsleep(Adafruit_SSD1306& display, unsigned long startTime,
     return;
   }
 
-  int currentH = 24 - (int)(progress * 20.0);
-  int currentY = 14 + (int)(progress * 14.0);
+  // Gli occhi si chiudono verso il basso: il bordo inferiore resta fisso a eyeY+eyeHeight.
+  int currentH = eyeHeight - (int)(progress * (eyeHeight - 4));
+  int currentY = eyeY + eyeHeight - currentH;
 
-  display.fillRoundRect(leftEyeX, currentY, eyeWidth, currentH, 2, SSD1306_WHITE);
-  display.fillRoundRect(rightEyeX, currentY, eyeWidth, currentH, 2, SSD1306_WHITE);
-
-  if (progress < 0.5) {
-    drawMouthAwake(display, 0, 0);
-  } else {
-    display.drawLine(56, 48, 72, 48, SSD1306_WHITE);
-  }
+  display.fillRoundRect(leftEyeX, currentY, eyeWidth, currentH, eyeRadius, SSD1306_WHITE);
+  display.fillRoundRect(rightEyeX, currentY, eyeWidth, currentH, eyeRadius, SSD1306_WHITE);
 }
 
 void renderFaceSleeping(Adafruit_SSD1306& display) {
   // Un'oscillazione verticale molto piccola simula la respirazione durante il sonno.
   int breathOffset = (int)(sin(millis() / 600.0) * 2.5);
 
-  int closedEyeY = 28 + breathOffset;
+  // Occhi chiusi allineati al bordo INFERIORE degli occhi aperti:
+  // eyeY + eyeHeight - 4 = 17 + 30 - 4 = 43.
+  int closedEyeY = eyeY + eyeHeight - 4 + breathOffset;
   display.fillRoundRect(leftEyeX, closedEyeY, eyeWidth, 4, 2, SSD1306_WHITE);
   display.fillRoundRect(rightEyeX, closedEyeY, eyeWidth, 4, 2, SSD1306_WHITE);
-
-  display.drawLine(56, 48 + breathOffset, 72, 48 + breathOffset, SSD1306_WHITE);
 
   int zStage = (millis() / 700) % 4;
   display.setTextColor(SSD1306_WHITE);
   display.setTextSize(1);
 
-  // Le lettere vengono aggiunte una alla volta per creare un'animazione ciclica.
-  if (zStage >= 1) { display.setCursor(94, 20 + breathOffset); display.print("z"); }
-  if (zStage >= 2) { display.setCursor(103, 11 + breathOffset); display.print("Z"); }
-  if (zStage >= 3) { display.setCursor(113, 2 + breathOffset); display.print("Z"); }
+  // Le Z partono dall'alto e salgono verso destra (posizioni originali).
+  if (zStage >= 1) { display.setCursor(112, 36 + breathOffset); display.print("z"); }
+  if (zStage >= 2) { display.setCursor(118, 26 + breathOffset); display.print("Z"); }
+  if (zStage >= 3) { display.setCursor(121, 16 + breathOffset); display.print("Z"); }
 }
 
 void renderFaceWakingUp(Adafruit_SSD1306& display, unsigned long startTime, FaceState& currentState) {
-  // Parte dagli occhi quasi chiusi e aumenta progressivamente l'apertura:
-  // 9 e 14 pixel nei due blink, poi apertura completa a 24 pixel.
+  // Parte dagli occhi quasi chiusi e aumenta progressivamente l'apertura
+  // con due blink parziali, poi apertura completa.
   const unsigned long blinkDuration = 400;
   const unsigned long partialBlinkDuration = blinkDuration * 2;
   const unsigned long wakeDuration = partialBlinkDuration + 400;
@@ -154,7 +139,7 @@ void renderFaceWakingUp(Adafruit_SSD1306& display, unsigned long startTime, Face
   if (elapsed < partialBlinkDuration) {
     unsigned long blinkTime = elapsed % blinkDuration;
     int blinkNumber = elapsed / blinkDuration;
-    int maximumEyeHeight = 9 + (blinkNumber * 5);
+    int maximumEyeHeight = 10 + (blinkNumber * 8);
 
     if (blinkTime < 150) {
       currentH = sleepingEyeHeight +
@@ -166,29 +151,46 @@ void renderFaceWakingUp(Adafruit_SSD1306& display, unsigned long startTime, Face
       currentH = sleepingEyeHeight;
     }
   } else {
-    // Dopo il terzo blink gli occhi si aprono completamente senza scatto.
+    // Dopo il secondo blink gli occhi si aprono completamente senza scatto.
     currentH = sleepingEyeHeight +
                (((elapsed - partialBlinkDuration) * (eyeHeight - sleepingEyeHeight)) / 400);
   }
 
-  int currentY = eyeY + (eyeHeight - currentH) / 2;
+  // Il bordo inferiore resta fisso a eyeY+eyeHeight: gli occhi si aprono verso l'alto.
+  int currentY = eyeY + eyeHeight - currentH;
   display.fillRoundRect(leftEyeX, currentY, eyeWidth, currentH, eyeRadius, SSD1306_WHITE);
   display.fillRoundRect(rightEyeX, currentY, eyeWidth, currentH, eyeRadius, SSD1306_WHITE);
-
-  // Durante il risveglio la bocca resta neutra e orizzontale.
-  display.drawLine(56, 48, 72, 48, SSD1306_WHITE);
 }
 
 void renderFaceShake(Adafruit_SSD1306& display, unsigned long now) {
-  display.fillRoundRect(leftEyeX, eyeY, eyeWidth, eyeHeight, eyeRadius, SSD1306_WHITE);
-  display.fillRoundRect(rightEyeX, eyeY, eyeWidth, eyeHeight, eyeRadius, SSD1306_WHITE);
-  display.drawFastHLine(54, 50, 20, SSD1306_WHITE);
-  int shift = ((now / 45) % 2 == 0) ? -3 : 3;
-  // Scie laterali tratteggiate: sull'OLED monocromatico simulano opacita' ridotta.
-  for (int side : {-1, 1}) for (int row = 0; row < 3; row++) {
-    int x = (side < 0 ? 3 : 108) + shift * side;
-    int y = 16 + row * 11;
-    display.drawFastHLine(x, y, 12, SSD1306_WHITE);
-    display.drawFastHLine(x + 3, y + 3, 6, SSD1306_WHITE);
+  // Oscillazione sinusoidale veloce: ±16 px sull'asse X.
+  int offsetX = (int)(sin(now * 0.08) * 16);
+
+  // Disegna entrambi gli occhi con la stessa logica.
+  const int exArr[2] = { leftEyeX + offsetX, rightEyeX + offsetX };
+
+  for (int i = 0; i < 2; i++) {
+    int ex = exArr[i];
+
+    // --- Passo 1: rettangolo smussato bianco (arrotonda tutti e 4 gli angoli) ---
+    display.fillRoundRect(ex, eyeY, eyeWidth, eyeHeight, eyeRadius, SSD1306_WHITE);
+
+    // --- Passo 2: squadra gli angoli INFERIORI ridisegnando i corner con bianco ---
+    // fillRoundRect lascia nero il quadrante di raggio eyeRadius in ogni angolo;
+    // riempiendolo di bianco si ottengono angoli retti solo in basso.
+    display.fillRect(ex,                       eyeY + eyeHeight - eyeRadius, eyeRadius, eyeRadius, SSD1306_WHITE);
+    display.fillRect(ex + eyeWidth - eyeRadius, eyeY + eyeHeight - eyeRadius, eyeRadius, eyeRadius, SSD1306_WHITE);
+
+    // --- Passo 3: incavo ad arco al centro del bordo inferiore ---
+    // notchW = 30 lascia (34-30)/2 = 2 px di "piede" per ciascun lato.
+    // notchR = notchH = 6: le pareti sono un quarto di cerchio esatto —
+    // partono verticali dal bordo inferiore e arrivano orizzontali al top piatto.
+    const int notchW = 30;  // larghezza dell'incavo
+    const int notchH = 6;   // profondita' visibile (6px)
+    const int notchR = 6;   // raggio = profondita': curva fluida da verticale a orizzontale
+    int notchX = ex + (eyeWidth - notchW) / 2;
+    int notchY = eyeY + eyeHeight - notchH;
+    // Il rect nero fuoriesce di notchR sotto il bordo (area gia' nera): visibile solo l'arco.
+    display.fillRoundRect(notchX, notchY, notchW, notchH + notchR, notchR, SSD1306_BLACK);
   }
 }

@@ -24,6 +24,7 @@
 #define BLE_STATUS_CHARACTERISTIC_UUID "7f7b0003-8b3a-4f65-9d39-2c8c5a7e1001"
 
 const unsigned long INACTIVITY_TIMEOUT = 15UL * 60UL * 1000UL; // Quindici minuti prima del sonno.
+//const unsigned long INACTIVITY_TIMEOUT = 8UL * 1000UL; // TEST: 8 secondi.
 
 enum ScreenMode {
   // Schermata con il volto animato.

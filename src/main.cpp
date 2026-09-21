@@ -24,7 +24,7 @@ unsigned long lastActivityTime = 0;
 unsigned long sleepAnimationStart = 0;
 unsigned long wakeAnimationStart = 0;
 unsigned long shakeAnimationStart = 0;
-constexpr unsigned long SHAKE_ANIMATION_DURATION_MS = 650;
+constexpr unsigned long SHAKE_ANIMATION_DURATION_MS = 600;
 
 enum StartupState {
   STARTUP_CONNECTING,
